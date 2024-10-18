@@ -1,0 +1,134 @@
+import app.cash.turbine.test
+import com.example.walmart.domain.error.ErrorFormatter
+import com.example.walmart.domain.model.Country
+import com.example.walmart.domain.provider.DispatcherProvider
+import com.example.walmart.domain.repo.CountryRepo
+import io.mockk.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.*
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.time.ExperimentalTime
+
+@ExperimentalCoroutinesApi
+@ExperimentalTime
+class CountriesViewModelTest {
+
+    private lateinit var viewModel: CountriesViewModel
+    private lateinit var countryRepo: CountryRepo
+    private lateinit var dispatcherProvider: DispatcherProvider
+    private lateinit var errorFormatter: ErrorFormatter
+
+    private val testDispatcher = UnconfinedTestDispatcher()
+
+    @Before
+    fun setup() {
+        countryRepo = mockk()
+        dispatcherProvider = mockk {
+            every { io() } returns testDispatcher
+        }
+        errorFormatter = mockk()
+
+        viewModel = CountriesViewModel(
+            repo = countryRepo,
+            dispatchers = dispatcherProvider,
+            errorFormatter = errorFormatter
+        )
+
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun loadItems should load countries from repo and update state() = runTest {
+        // Given
+        val countries = listOf(
+            Country("United States", "North America", "USA", "Washington, D.C."),
+            Country("India", "Asia", "IN", "New Delhi")
+        )
+        coEvery { countryRepo.getCountries() } returns countries
+
+        // When
+        viewModel.reloadList()
+
+        // Then
+        viewModel.state.test {
+            val state = awaitItem()
+            assertEquals(false, state.loading)
+            assertEquals(countries, state.items)
+        }
+    }
+
+    @Test
+    fun search should update the list based on query() = runTest {
+        // Given
+        val countries = listOf(
+            Country("United States", "North America", "USA", "Washington, D.C."),
+            Country("India", "Asia", "IN", "New Delhi"),
+            Country("Germany", "Europe", "DE", "Berlin")
+        )
+        coEvery { countryRepo.getCountries() } returns countries
+
+        // Load initial items
+        viewModel.reloadList()
+
+        // When
+        viewModel.search("India")
+
+        // Then
+        viewModel.state.test {
+            val state = awaitItem()
+            assertEquals(listOf(Country("India", "Asia", "IN", "New Delhi")), state.items)
+        }
+    }
+
+    @Test
+    fun search should return all countries when query is blank() = runTest {
+        // Given
+        val countries = listOf(
+            Country("United States", "North America", "USA", "Washington, D.C."),
+            Country("India", "Asia", "IN", "New Delhi"),
+            Country("Germany", "Europe", "DE", "Berlin")
+        )
+        coEvery { countryRepo.getCountries() } returns countries
+
+        // Load initial items
+        viewModel.reloadList()
+
+        // When
+        viewModel.search("")
+
+        // Then
+        viewModel.state.test {
+            val state = awaitItem()
+            assertEquals(countries, state.items) // All items should be returned
+        }
+    }
+
+    @Test
+    fun onItemClick should trigger open details effect() = runTest {
+        // Given
+        val country = Country("India", "Asia", "IN", "New Delhi")
+
+        // When
+        viewModel.onItemClick(country)
+
+        // Then
+        viewModel.effectFlow.test {
+            val effect = awaitItem()
+            assert(effect is CountriesViewModel.Effect.OpenDetails)
+            assertEquals("IN", (effect as CountriesViewModel.Effect.OpenDetails).countryCode)
+        }
+    }
+}
+
+
+countries view model test cases
