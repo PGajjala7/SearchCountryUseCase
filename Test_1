@@ -1,0 +1,58 @@
+import com.example.walmart.domain.model.Country
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+
+class SearchCountryUseCaseTest {
+
+    private val searchCountryUseCase = SearchCountryUseCase()
+
+    companion object {
+        @JvmStatic
+        fun provideTestData(): List<Arguments> {
+            val countries = listOf(
+                Country("United States", "North America", "USA", "Washington, D.C."),
+                Country("Canada", "North America", "CAN", "Ottawa"),
+                Country("Germany", "Europe", "DE", "Berlin"),
+                Country("India", "Asia", "IN", "New Delhi"),
+                Country("Australia", "Oceania", "AUS", "Canberra")
+            )
+            return listOf(
+                // Case 1: Empty query, return the entire list
+                Arguments.of(countries, "", countries),
+
+                // Case 2: Query matches country name
+                Arguments.of(countries, "India", listOf(Country("India", "Asia", "IN", "New Delhi"))),
+
+                // Case 3: Query matches region
+                Arguments.of(countries, "Europe", listOf(Country("Germany", "Europe", "DE", "Berlin"))),
+
+                // Case 4: Query matches partially, case-insensitive
+                Arguments.of(countries, "united", listOf(Country("United States", "North America", "USA", "Washington, D.C."))),
+
+                // Case 5: No matches
+                Arguments.of(countries, "xyz", emptyList<Country>()),
+
+                // Case 6: Query matches multiple countries by region
+                Arguments.of(countries, "North America", listOf(
+                    Country("United States", "North America", "USA", "Washington, D.C."),
+                    Country("Canada", "North America", "CAN", "Ottawa")
+                ))
+            )
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideTestData")
+    fun test search country use case(list: List<Country>, query: String, expected: List<Country>) {
+        // Act
+        val result = searchCountryUseCase(list, query)
+
+        // Assert
+        assertEquals(expected, result)
+    }
+}
+
+
+tests for SearchCountryUseCase class
